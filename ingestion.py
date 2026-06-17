@@ -1,7 +1,11 @@
 #Import Libraries
-import time, requests, json, os, io
+import time, requests, json, os, io, logging
 from dotenv import load_dotenv
 from databricks.sdk import WorkspaceClient
+
+# Logging configuration
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 #Define functions
 def safe_request(url, headers):
@@ -12,8 +16,10 @@ def safe_request(url, headers):
                 time.sleep(0.1)
                 return response
             elif response.status_code == 429:
+                logger.warning("rate limit exceed")
                 time.sleep(125)
             else:
+                logger.error(f"error, status ={response.status_code}")
                 response.raise_for_status()
 
 def send_to_databricks(workspace_client, catalog, schema, volume, folder, filename, data):
@@ -24,8 +30,9 @@ def send_to_databricks(workspace_client, catalog, schema, volume, folder, filena
 def get_players(queue, tier, division, headers):
     '''Get json list of players in specified queue, tier, division'''
     url = f"https://euw1.api.riotgames.com/lol/league-exp/v4/entries/{queue}/{tier}/{division}?page=1"
-    request = safe_request(url, headers)
-    return request.json()
+    request = safe_request(url, headers).json()
+    logger.info(f"Found {len(request)} unique players")
+    return request
 
 def get_matches_id(queue_id, puuids, headers):
     '''get json set of matches_id from a list of puuids'''
@@ -34,6 +41,7 @@ def get_matches_id(queue_id, puuids, headers):
         url = f"https://europe.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?queue={queue_id}&type=ranked&start=0&count=100"
         request = safe_request(url, headers)
         matches.update(request.json())
+    logger.info(f"Found {len(matches)} unique matches")
     return matches
 
 def get_processed_matches(workspace_client, catalog, schema, volume, folder):
@@ -57,6 +65,7 @@ def fetch_and_upload_matches(matches, headers, workspace_client, catalog, schema
         timeline_data = safe_request(url_timeline, headers).json()
         send_to_databricks(workspace_client,catalog,schema,volume,"matches",f"match_{match}",match_data)
         send_to_databricks(workspace_client,catalog,schema,volume,"timelines",f"timeline_{match}",timeline_data)      
+        logger.info(f"Uploaded match {match}")
 
 def main():
     #Get APIs from env
@@ -82,7 +91,9 @@ def main():
     matches = get_matches_id(queue_id,puuids,headers)
     old_matches = get_processed_matches(workspace_client, catalog, schema, volume, "matches") & get_processed_matches(workspace_client, catalog, schema, volume, "timelines")
     new_matches = matches - old_matches
+    logger.info(f"Found {len(new_matches)} new matches to process")
     fetch_and_upload_matches(new_matches, headers, workspace_client, catalog, schema, volume)
+    logger.info(f"Pipeline completed")
 
 if __name__ == "__main__":
     main()
