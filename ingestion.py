@@ -36,6 +36,18 @@ def get_matches_id(queue_id, puuids, headers):
         matches.update(request.json())
     return matches
 
+def get_processed_matches(workspace_client, catalog, schema, volume, folder):
+    '''get processed matches already in databricks'''
+    matches = set()
+    path = f"/Volumes/{catalog}/{schema}/{volume}/{folder}"
+    try:
+        for file in workspace_client.files.list_directory_contents(path):
+            file_name = file.path.split("/")[-1].split("_", 1)[-1].replace(".json", "")
+            matches.add(file_name)
+    except Exception:
+        pass
+    return matches
+
 def fetch_and_upload_matches(matches, headers, workspace_client, catalog, schema, volume):
     '''fetch every match of a set to return and upload in databricks both the match and timeline data'''
     for match in matches:
@@ -68,7 +80,9 @@ def main():
     players = get_players(queue, tier, division, headers)
     puuids = [player["puuid"] for player in players]
     matches = get_matches_id(queue_id,puuids,headers)
-    fetch_and_upload_matches(matches, headers, workspace_client, catalog, schema, volume)
+    old_matches = get_processed_matches(workspace_client, catalog, schema, volume, "matches") & get_processed_matches(workspace_client, catalog, schema, volume, "timelines")
+    new_matches = matches - old_matches
+    fetch_and_upload_matches(new_matches, headers, workspace_client, catalog, schema, volume)
 
 if __name__ == "__main__":
     main()
