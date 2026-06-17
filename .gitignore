@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Ambiente virtuale
+.venv/
+venv/
+env/
+
+# Variabili d'ambiente (MAI pushare su GitHub)
+.env
+
+# Databricks
+.databricks/
+
+# Dati locali
+data/
+*.csv
+*.json
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
