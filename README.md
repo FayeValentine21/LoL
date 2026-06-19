@@ -17,3 +17,9 @@ Pipeline of LoL Data
 
 # Tech Stack
 Python, Databricks, Delta Lake, Riot Games API
+
+# Future Improvements
+- Partition bronze tables by game_version for better query performance
+- Auto Loader for incremental JSON ingestion
+- Airflow orchestration
+- MERGE on silver and gold layers
